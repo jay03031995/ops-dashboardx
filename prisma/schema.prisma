@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum CalendarStatus {
+  PENDING
+  ASSIGNED
+  COMPLETED
+}
+
+
+model Tenant {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  users            User[]
+  posts            Post[]
+  categories       Category[]
+  tags             Tag[]
+  clients          Client[]
+  calendarEntries  ContentCalendar[]
+  contentProduction ContentProduction[]
+  manualReportEntries ManualReportEntry[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  avatarUrl String?
+  role      Role     @default(EDITOR)
+  teamRoleCode String?
+  userModuleAccess String[] @default([])
+  posts     Post[]
+  clients   Client[]
+  managedClients Client[] @relation("ClientSocialManager")
+  assignedCalendarEntries ContentCalendar[] @relation("CalendarAssignedEditor")
+  assignedContentProduction ContentProduction[] @relation("ContentProductionEditor")
+  createdContentProduction  ContentProduction[] @relation("ContentProductionCreator")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id              String            @id @default(cuid())
+  name            String
+  oneDriveFolder  String?           // Path or ID of the client's folder in OneDrive
+  editorId        String?
+  editor          User?             @relation(fields: [editorId], references: [id])
+  socialManagerId String?
+  socialManager   User?             @relation("ClientSocialManager", fields: [socialManagerId], references: [id])
+  socialCredentials SocialCredential[]
+  calendarEntries ContentCalendar[]
+  contentProduction ContentProduction[]
+  manualReportEntries ManualReportEntry[]
+  tenantId        String
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([name, tenantId])
+}
+
+model SocialCredential {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  platform    String
+  username    String?
+  passwordEnc String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([clientId, platform])
+  @@index([clientId])
+}
+
+model ContentCalendar {
+  id            String         @id @default(cuid())
+  date          DateTime
+  videoTopic    String
+  platform      String
+  status        CalendarStatus @default(PENDING)
+  videoUrl      String?        // Link to the assigned video in OneDrive
+  refVideo      String?        // Optional reference video link
+  attachmentUrl String?        // Optional uploaded attachment link
+  editedVideoUrl String?       // Link to the final edited video
+  assignedEditorId String?
+  assignedEditor   User?        @relation("CalendarAssignedEditor", fields: [assignedEditorId], references: [id])
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id])
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([date])
+  @@index([assignedEditorId])
+}
+
+model ContentProduction {
+  id               String                  @id @default(cuid())
+  contentCalendarId String?                @unique
+  tenantId         String
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id])
+  clientId         String
+  client           Client                  @relation(fields: [clientId], references: [id])
+  platform         String
+  topic            String
+  scheduledDate    DateTime
+  status           String                  @default("PLANNED")
+  assignedEditorId String?
+  assignedEditor   User?                   @relation("ContentProductionEditor", fields: [assignedEditorId], references: [id])
+  createdById      String?
+  createdBy        User?                   @relation("ContentProductionCreator", fields: [createdById], references: [id])
+  editedContentUrl String?
+  finalPostUrl     String?
+  notes            String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([tenantId, scheduledDate])
+  @@index([clientId, scheduledDate])
+  @@index([assignedEditorId, status])
+}
+
+model ManualReportEntry {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reportDate   DateTime
+  platform     String
+  postLink     String
+  postedByName String?
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, reportDate])
+  @@index([clientId, reportDate])
+}
+
+model TeamChatMessage {
+  id         String   @id
+  tenantId   String
+  authorId   String
+  authorName String
+  authorRole String
+  text       String
+  type       String
+  taskId     String?
+  taskLabel  String?
+  attachmentUrl  String?
+  attachmentName String?
+  mentions   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Post {
+  id              String         @id @default(cuid())
+  title           String
+  slug            String
+  excerpt         String?
+  content         String         @db.Text
+  featuredImage   String?
+  isFeatured      Boolean        @default(false)
+  status          PostStatus     @default(DRAFT)
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  publishedAt     DateTime?
+  author          User           @relation(fields: [authorId], references: [id])
+  authorId        String
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  categories      PostCategory[]
+  tags            PostTag[]
+
+  @@unique([slug, tenantId])
+}
+
+model Category {
+  id       String         @id @default(cuid())
+  name     String
+  slug     String
+  tenantId String
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  posts    PostCategory[]
+
+  @@unique([slug, tenantId])
+}
+
+model Tag {
+  id       String    @id @default(cuid())
+  name     String
+  slug     String
+  tenantId String
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  posts    PostTag[]
+
+  @@unique([slug, tenantId])
+}
+
+model PostCategory {
+  postId     String
+  categoryId String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
