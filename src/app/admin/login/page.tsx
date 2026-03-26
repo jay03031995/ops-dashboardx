@@ -13,13 +13,27 @@ export default function AdminLoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const fetchWithTimeout = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetchWithTimeout('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -36,7 +50,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
+      const meRes = await fetchWithTimeout('/api/auth/me', { cache: 'no-store' });
       const meData = meRes.ok ? await meRes.json() : null;
       const moduleAccess = Array.isArray(meData?.user?.moduleAccess) ? meData.user.moduleAccess : [];
       const hasAdminModules =
@@ -53,8 +67,12 @@ export default function AdminLoginPage() {
       } else {
         router.push('/editor/dashboard');
       }
-    } catch {
-      setError('Unable to login');
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setError('Login request timed out. The server may be stuck connecting to the database.');
+      } else {
+        setError('Unable to login');
+      }
     } finally {
       setLoading(false);
     }

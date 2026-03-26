@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 import { matchDemoUser } from '@/lib/demo-auth';
 import { isDatabaseConfigured, prisma } from '@/lib/prisma';
+import { withTimeout } from '@/lib/with-timeout';
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL) {
@@ -43,18 +44,22 @@ export async function POST(request: Request) {
         tenantId: demoUser.tenantId,
       };
     } else {
-      const user = await prisma.user.findUnique({
-        where: { email },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          password: true,
-          role: true,
-          teamRoleCode: true,
-          tenantId: true,
-        },
-      });
+      const user = await withTimeout(
+        prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            password: true,
+            role: true,
+            teamRoleCode: true,
+            tenantId: true,
+          },
+        }),
+        12000,
+        'Database request timed out during login'
+      );
 
       if (!user) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -110,6 +115,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Login API failed', error);
     const message = error instanceof Error ? error.message : 'Failed to login';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = typeof message === 'string' && message.toLowerCase().includes('timed out') ? 503 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

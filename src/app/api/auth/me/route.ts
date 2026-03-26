@@ -3,6 +3,7 @@ import { getDemoUserFromSession } from '@/lib/demo-auth';
 import { getSession } from '@/lib/middleware';
 import { isDatabaseConfigured, prisma } from '@/lib/prisma';
 import { resolveEffectiveModuleAccess, resolveSessionTeamRole } from '@/lib/team-role-store';
+import { withTimeout } from '@/lib/with-timeout';
 
 export async function GET() {
   const session = await getSession();
@@ -16,10 +17,14 @@ export async function GET() {
     });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true, name: true, email: true, role: true, teamRoleCode: true, userModuleAccess: true, tenantId: true, avatarUrl: true },
-  });
+  const user = await withTimeout(
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { id: true, name: true, email: true, role: true, teamRoleCode: true, userModuleAccess: true, tenantId: true, avatarUrl: true },
+    }),
+    12000,
+    'Database request timed out while loading the session'
+  );
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
