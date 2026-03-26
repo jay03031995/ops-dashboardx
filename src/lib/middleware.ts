@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { cookies, headers } from 'next/headers';
+import { allowHeaderSessionFallback, getJwtSecret } from '@/lib/auth-session';
 
 type SessionRole = 'ADMIN' | 'EDITOR';
 
@@ -43,13 +44,16 @@ export async function getSession(): Promise<Session | null> {
 
   if (token) {
     try {
-      const secret = process.env.JWT_SECRET || 'development-secret';
-      const decoded = jwt.verify(token, secret) as TokenPayload;
+      const decoded = jwt.verify(token, getJwtSecret()) as TokenPayload;
       const session = normalizePayload(decoded);
       if (session) return session;
     } catch {
       // Invalid/expired token; continue to header/dev fallback.
     }
+  }
+
+  if (!allowHeaderSessionFallback()) {
+    return null;
   }
 
   // Useful for local testing if auth routes are not wired yet.

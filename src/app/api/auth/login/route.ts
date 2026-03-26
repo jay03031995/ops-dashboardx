@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
 import { matchDemoUser } from '@/lib/demo-auth';
+import { getJwtSecret } from '@/lib/auth-session';
 import { isDatabaseConfigured, prisma } from '@/lib/prisma';
 import { withTimeout } from '@/lib/with-timeout';
 
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
         roleCode: sessionUser.roleCode,
         email: sessionUser.email,
       },
-      process.env.JWT_SECRET || 'development-secret',
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 

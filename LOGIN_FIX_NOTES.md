@@ -8,6 +8,7 @@
 - Updated `src/lib/prisma.ts` to initialize Prisma lazily with the Postgres adapter.
 - Added an SSL override for hosts that fail with `self-signed certificate in certificate chain`.
 - Added request timeouts to the login flow so the UI no longer hangs forever on `Signing in...`.
+- Locked down session handling so production no longer accepts header-based auth fallbacks, and production JWT handling now requires `JWT_SECRET`.
 
 ## Why this fixes the issue
 
