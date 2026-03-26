@@ -6,6 +6,7 @@
 - Switched Prisma to the JavaScript engine with `engineType = "client"` in `prisma/schema.prisma`.
 - Added PostgreSQL driver adapter support with `@prisma/adapter-pg` and `pg`.
 - Updated `src/lib/prisma.ts` to initialize Prisma lazily with the Postgres adapter.
+- Added an SSL override for hosts that fail with `self-signed certificate in certificate chain`.
 - Added request timeouts to the login flow so the UI no longer hangs forever on `Signing in...`.
 
 ## Why this fixes the issue

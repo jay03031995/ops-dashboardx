@@ -21,6 +21,7 @@ Important:
 - Keep `CREDENTIALS_SECRET` stable between deployments, otherwise previously saved encrypted credentials cannot be decrypted.
 - If `CREDENTIALS_SECRET` is not set, the app falls back to `JWT_SECRET` for credential encryption key derivation. For production, set both explicitly.
 - This project is configured to use Prisma's JavaScript engine with the Postgres driver adapter. After pulling changes, install dependencies again so `@prisma/adapter-pg`, `pg`, and the Prisma 6 client are available.
+- The Prisma adapter is configured with SSL enabled and relaxed certificate validation to support hosts that surface `self-signed certificate in certificate chain` errors when connecting to Supabase.
 
 ## 2) Install and build commands
 

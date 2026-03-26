@@ -18,6 +18,9 @@ function createPrismaClient() {
     new PrismaPg({
       connectionString: databaseUrl,
       connectionTimeoutMillis: 5_000,
+      ssl: {
+        rejectUnauthorized: false,
+      },
     });
 
   const client =
